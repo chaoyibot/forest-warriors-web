@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 短剧生成器 - 森林奇兵</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: #fff;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    header {
+      text-align: center;
+      padding: 40px 0 30px;
+    }
+    header h1 {
+      font-size: 2.5em;
+      background: linear-gradient(90deg, #f093fb, #f5576c, #4facfe);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+    header p {
+      color: #aaa;
+      font-size: 1.1em;
+    }
+    .section {
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .section h2 {
+      font-size: 1.4em;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section h2 .icon {
+      font-size: 1.2em;
+    }
+    .badge {
+      display: inline-block;
+      background: linear-gradient(90deg, #f093fb, #f5576c);
+      color: #fff;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.7em;
+      vertical-align: middle;
+    }
+    
+    /* 角色卡片 */
+    .character-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    .character-card {
+      background: rgba(255,255,255,0.08);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: transform 0.3s, box-shadow 0.3s;
+      cursor: pointer;
+    }
+    .character-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .character-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+    .character-card .info {
+      padding: 12px;
+    }
+    .character-card .name {
+      font-weight: bold;
+      font-size: 1.1em;
+      margin-bottom: 4px;
+    }
+    .character-card .desc {
+      color: #aaa;
+      font-size: 0.85em;
+    }
+    
+    /* 场景卡片 */
+    .scene-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .scene-card {
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: transform 0.3s;
+      cursor: pointer;
+    }
+    .scene-card:hover {
+      transform: scale(1.03);
+    }
+    .scene-card img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+    }
+    .scene-card .info {
+      padding: 8px 12px;
+    }
+    .scene-card .scene-num {
+      color: #f5576c;
+      font-weight: bold;
+      font-size: 0.85em;
+    }
+    .scene-card .scene-title {
+      font-size: 0.95em;
+      margin-top: 2px;
+    }
+    
+    /* 视频播放器 */
+    .video-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+    }
+    .video-container video {
+      width: 100%;
+      display: block;
+    }
+    .video-info {
+      text-align: center;
+      margin-top: 16px;
+      color: #aaa;
+    }
+    
+    /* 剧本展示 */
+    .script-list {
+      counter-reset: scene;
+    }
+    .script-item {
+      display: flex;
+      gap: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .script-item:last-child { border-bottom: none; }
+    .script-num {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+    .script-content h4 {
+      margin-bottom: 4px;
+      font-size: 1em;
+    }
+    .script-content p {
+      color: #aaa;
+      font-size: 0.85em;
+      line-height: 1.5;
+    }
+    
+    /* 模态框 */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal.active { display: flex; }
+    .modal img {
+      max-width: 90%;
+      max-height: 90vh;
+      border-radius: 8px;
+    }
+    .modal-close {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 2em;
+      color: #fff;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+    
+    /* 导航 */
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      padding: 16px 0;
+      position: sticky;
+      top: 0;
+      background: rgba(15,12,41,0.95);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    nav a {
+      color: #aaa;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.3s;
+      font-size: 0.95em;
+    }
+    nav a:hover, nav a.active {
+      color: #fff;
+      background: rgba(255,255,255,0.1);
+    }
+    
+    footer {
+      text-align: center;
+      padding: 30px 0;
+      color: #666;
+      font-size: 0.85em;
+    }
+    
+    @media (max-width: 768px) {
+      header h1 { font-size: 1.8em; }
+      .character-grid { grid-template-columns: 1fr; }
+      .scene-grid { grid-template-columns: repeat(2, 1fr); }
+      nav { gap: 10px; flex-wrap: wrap; }
+      nav a { padding: 6px 12px; font-size: 0.85em; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="#hero" class="active">首页</a>
+    <a href="#characters">角色</a>
+    <a href="#scenes">场景</a>
+    <a href="#script">剧本</a>
+    <a href="#video">成片</a>
+  </nav>
+
+  <div class="container">
+    <!-- Hero -->
+    <section id="hero">
+      <header>
+        <h1>🎬 森林奇兵</h1>
+        <p>AI 短剧生成器 — 3D卡通风格 · 幽默搞笑 · 第一集</p>
+      </header>
+    </section>
+
+    <!-- 角色 -->
+    <section id="characters" class="section">
+      <h2><span class="icon">🎭</span> 角色设定 <span class="badge">4位主角</span></h2>
+      <div class="character-grid">
+        <div class="character-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="characters/xiongda_9panel_hd.png" alt="熊大" onerror="this.src='https://via.placeholder.com/300x200/5C3317/fff?text=%E7%86%8A%E5%A4%A7'">
+          <div class="info">
+            <div class="name">🐻 熊大</div>
+            <div class="desc">森林守护者队长，聪明勇敢，肚子上有个"哥"字标贴</div>
+          </div>
+        </div>
+        <div class="character-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="characters/xionger_9panel_simple.png" alt="熊二" onerror="this.src='https://via.placeholder.com/300x200/D4A574/fff?text=%E7%86%8A%E4%BA%8C'">
+          <div class="info">
+            <div class="name">🐻 熊二</div>
+            <div class="desc">憨厚贪吃，熊大的弟弟，口头禅"哎呀妈呀"，肚子上有个"东"字标贴</div>
+          </div>
+        </div>
+        <div class="character-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="characters/guangtouqiang_9panel_simple.png" alt="光头强" onerror="this.src='https://via.placeholder.com/300x200/FF8C00/fff?text=%E5%85%89%E5%A4%B4%E5%BC%BA'">
+          <div class="info">
+            <div class="name">👷 光头强</div>
+            <div class="desc">戴橙色安全帽的伐木工，发明总出故障，每次失败都自我安慰</div>
+          </div>
+        </div>
+        <div class="character-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="characters/guoguo_9panel_simple.png" alt="小松鼠果果" onerror="this.src='https://via.placeholder.com/300x200/A0522D/fff?text=%E6%9E%9C%E6%9E%9C'">
+          <div class="info">
+            <div class="name">🐿️ 小松鼠果果</div>
+            <div class="desc">机灵的小松鼠，森林情报员，穿着黄色叶子披风</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 场景 -->
+    <section id="scenes" class="section">
+      <h2><span class="icon">🎨</span> 场景图 <span class="badge">12场</span></h2>
+      <div class="scene-grid">
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_01_翠花林清晨.png" alt="场景1" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=1'">
+          <div class="info">
+            <div class="scene-num">#1</div>
+            <div class="scene-title">翠花林清晨</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_02_森林空地.png" alt="场景2" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=2'">
+          <div class="info">
+            <div class="scene-num">#2</div>
+            <div class="scene-title">森林空地</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_03_树林边缘.png" alt="场景3" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=3'">
+          <div class="info">
+            <div class="scene-num">#3</div>
+            <div class="scene-title">树林边缘</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_04_森林小道.png" alt="场景4" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=4'">
+          <div class="info">
+            <div class="scene-num">#4</div>
+            <div class="scene-title">森林小道</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_05_熊大洞穴.png" alt="场景5" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=5'">
+          <div class="info">
+            <div class="scene-num">#5</div>
+            <div class="scene-title">熊大洞穴</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_06_森林空地-发射器.png" alt="场景6" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=6'">
+          <div class="info">
+            <div class="scene-num">#6</div>
+            <div class="scene-title">森林空地-发射器</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_07_蜂蜜现场.png" alt="场景7" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=7'">
+          <div class="info">
+            <div class="scene-num">#7</div>
+            <div class="scene-title">蜂蜜现场</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_08_树林-熊大赶到.png" alt="场景8" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=8'">
+          <div class="info">
+            <div class="scene-num">#8</div>
+            <div class="scene-title">树林-熊大赶到</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_09_对峙场景.png" alt="场景9" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=9'">
+          <div class="info">
+            <div class="scene-num">#9</div>
+            <div class="scene-title">对峙场景</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_10_森林高处.png" alt="场景10" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=10'">
+          <div class="info">
+            <div class="scene-num">#10</div>
+            <div class="scene-title">森林高处</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_11_机器失控.png" alt="场景11" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=11'">
+          <div class="info">
+            <div class="scene-num">#11</div>
+            <div class="scene-title">机器失控</div>
+          </div>
+        </div>
+        <div class="scene-card" onclick="openModal(this.querySelector('img').src)">
+          <img src="scenes/scene_12_和解场景.png" alt="场景12" onerror="this.src='https://via.placeholder.com/300x150/228B22/fff?text=12'">
+          <div class="info">
+            <div class="scene-num">#12</div>
+            <div class="scene-title">和解场景</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 剧本 -->
+    <section id="script" class="section">
+      <h2><span class="icon">📜</span> 剧本 <span class="badge">12场</span></h2>
+      <div class="script-list">
+        <div class="script-item">
+          <div class="script-num">1</div>
+          <div class="script-content">
+            <h4>翠花林清晨</h4>
+            <p>阳光明媚，鸟鸣虫叫，熊大熊二在森林里晨练。熊二边练边打瞌睡，差点摔倒。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">2</div>
+          <div class="script-content">
+            <h4>森林空地</h4>
+            <p>熊二发现蜂蜜罐，差点掉进陷阱。熊大及时阻止，揭示捕兽绳。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">3</div>
+          <div class="script-content">
+            <h4>树林边缘</h4>
+            <p>光头强调试"超级抓兽网发射器"，第一次测试就把自己帽子网住了。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">4</div>
+          <div class="script-content">
+            <h4>森林小道</h4>
+            <p>小松鼠果果发现异常，急忙去通知熊大，路上还偷吃了诱饵坚果。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">5</div>
+          <div class="script-content">
+            <h4>熊大洞穴</h4>
+            <p>熊大在看森林地图，果果急匆匆报告光头强的新发明。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">6</div>
+          <div class="script-content">
+            <h4>森林空地-发射器</h4>
+            <p>光头强启动发射器，但网偏了15度，罩住了树桩而不是蜂蜜。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">7</div>
+          <div class="script-content">
+            <h4>蜂蜜现场</h4>
+            <p>熊二被网罩住倒挂在树上，还在啃蜂蜜，光头强得意洋洋。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">8</div>
+          <div class="script-content">
+            <h4>树林-熊大赶到</h4>
+            <p>熊大听到呼救冲过来，看到熊二被网挂着还在啃蜂蜜，哭笑不得。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">9</div>
+          <div class="script-content">
+            <h4>对峙场景</h4>
+            <p>熊大vs光头强，光头强炫耀高科技，结果机器冒烟把自己脸熏黑了。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">10</div>
+          <div class="script-content">
+            <h4>森林高处</h4>
+            <p>熊大爬上大树，用树枝触发机器开关，果果在旁边瞎指挥。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">11</div>
+          <div class="script-content">
+            <h4>机器失控</h4>
+            <p>发射器反转，把光头强自己网住了，挂在树上晃悠。</p>
+          </div>
+        </div>
+        <div class="script-item">
+          <div class="script-num">12</div>
+          <div class="script-content">
+            <h4>和解场景</h4>
+            <p>四个主角和解，光头强一激动又被绳子弹飞，全员爆笑。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 成片 -->
+    <section id="video" class="section">
+      <h2><span class="icon">🎥</span> 成片 <span class="badge">1分0秒</span></h2>
+      <div class="video-container">
+        <video controls poster="scenes/scene_01_翠花林清晨.png">
+          <source src="videos/output.mp4" type="video/mp4">
+          您的浏览器不支持视频播放
+        </video>
+      </div>
+      <div class="video-info">
+        <p>分辨率: 1280x704 | 格式: MP4 (H.264+AAC) | 时长: 1分0秒</p>
+      </div>
+    </section>
+
+    <footer>
+      <p>AI 短剧生成器 © 2026 | 由 Agnes AI + Hermes Agent 驱动</p>
+      <p style="margin-top:8px;">森林奇兵 第一集 · 幽默搞笑 · 3D卡通风格</p>
+    </footer>
+  </div>
+
+  <!-- 模态框 -->
+  <div class="modal" id="modal" onclick="closeModal()">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <img id="modal-img" src="" alt="">
+  </div>
+
+  <script>
+    // 模态框
+    function openModal(src) {
+      document.getElementById('modal-img').src = src;
+      document.getElementById('modal').classList.add('active');
+    }
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
+    }
+    
+    // 导航高亮
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('nav a');
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        if (scrollY >= sectionTop - 200) {
+          current = section.getAttribute('id');
+        }
+      });
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    });
+    
+    // 平滑滚动
+    document.querySelectorAll('nav a').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) target.scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+  </script>
+</body>
+</html>
